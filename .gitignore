@@ -1,0 +1,39 @@
+﻿# -- Virtual environment ------------------------------------------------------
+.venv/
+
+# -- Backup files -------------------------------------------------------------
+*.bak
+
+# -- Python cache -------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# -- OS / editor artefacts ----------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# -- Streamlit local config (machine-specific paths) --------------------------
+.streamlit/
+
+# -- Generated / temporary scripts --------------------------------------------
+# _gen.py was a one-off PowerShell scaffold attempt; kept locally, not tracked.
+SchoolFlow_AI_MVP/_gen.py
+
+# -- Secrets / credentials (never commit these) -------------------------------
+*.env
+.env
+secrets.toml
+*.pem
+*.key
+
+# -- App-generated Excel reports (user output, not source code) ---------------
+SchoolFlow_AI_MVP_Report.xlsx
+SchoolFlow_AI_Report.xlsx
