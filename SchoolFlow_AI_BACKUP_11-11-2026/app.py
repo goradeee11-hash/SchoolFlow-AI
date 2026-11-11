@@ -420,6 +420,41 @@ div.stDownloadButton > button:hover {
     color: #FFFFFF !important;
 }
 
+/* ── Chat message bubbles — readable on mobile and desktop ──────────── */
+/* Give both user and assistant messages a light surface with dark text. */
+[data-testid="stChatMessage"] {
+    background: #FFFFFF !important;
+    border: 1px solid #D9E1E7 !important;
+    border-radius: 12px !important;
+    padding: 0.85rem 1rem !important;
+    margin: 0.55rem 0 !important;
+}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li,
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] strong,
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] em,
+[data-testid="stChatMessage"] [data-testid="stCaptionContainer"],
+[data-testid="stChatMessage"] .stCaption {
+    color: #1F2937 !important;
+    -webkit-text-fill-color: #1F2937 !important;
+    opacity: 1 !important;
+}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] * {
+    color: #1F2937 !important;
+    -webkit-text-fill-color: #1F2937 !important;
+}
+[data-testid="stChatMessage"] a {
+    color: #126B50 !important;
+    -webkit-text-fill-color: #126B50 !important;
+}
+[data-testid="stChatMessage"] code,
+[data-testid="stChatMessage"] pre {
+    background: #F1F5F3 !important;
+    color: #1F2937 !important;
+    -webkit-text-fill-color: #1F2937 !important;
+}
+
 /* ── Expander ────────────────────────────────────────────────────────── */
 .streamlit-expanderHeader {
     background: #ffffff !important;
