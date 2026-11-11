@@ -1450,32 +1450,65 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Chat history (native st.chat_message — no DOM conflict) ──────────────
+# ── Chat history (custom HTML bubbles; avoids Streamlit theme text colors) ─
+import html as _html
+
+def _render_chat_bubble(role, content, timestamp=""):
+    _is_user = role == "user"
+    _bg = "#343B3A" if _is_user else "#174D3D"
+    _border = "#65736E" if _is_user else "#D4A017"
+    _label = "أنت" if _is_user else "SchoolFlow AI"
+    _safe_content = _html.escape(str(content))
+    _safe_time = _html.escape(str(timestamp))
+    st.markdown(
+        f"""
+        <div dir="auto" style="
+            width:100%; box-sizing:border-box; margin:10px 0;
+            padding:16px 18px; border-radius:14px;
+            background-color:{_bg} !important;
+            border:1px solid {_border} !important;
+            color:#FFFFFF !important;
+            -webkit-text-fill-color:#FFFFFF !important;
+            opacity:1 !important;
+            text-align:start; white-space:pre-wrap;
+            overflow-wrap:anywhere; line-height:1.85;
+            font-family:'Cairo','Inter',sans-serif;
+            font-size:1rem;">
+          <div style="font-size:0.76rem;font-weight:700;
+                      color:#E6C66A !important;
+                      -webkit-text-fill-color:#E6C66A !important;
+                      margin-bottom:7px;">{_label}</div>
+          <div style="color:#FFFFFF !important;
+                      -webkit-text-fill-color:#FFFFFF !important;
+                      opacity:1 !important;">{_safe_content}</div>
+          <div style="font-size:0.72rem;margin-top:9px;
+                      color:#D1D5DB !important;
+                      -webkit-text-fill-color:#D1D5DB !important;">{_safe_time}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 _chat_container = st.container()
 with _chat_container:
     history = st.session_state["chat_history"]
     if not history:
-        with st.chat_message("assistant"):
-            st.markdown(
-                T(
-                    "Hello! I'm SchoolFlow AI Assistant 🎓\n\n"
-                    "Upload your data file first, then ask me about student performance.\n\n"
-                    "Type **help** to see all available commands.",
-                    "مرحبًا! أنا مساعد SchoolFlow AI 🎓\n\n"
-                    "ارفع ملف البيانات أولاً ثم اسألني عن أداء الطلاب.\n\n"
-                    "اكتب **مساعدة** لعرض الأوامر المتاحة."
-                )
-            )
+        _welcome = T(
+            "Hello! I'm SchoolFlow AI Assistant 🎓\n\n"
+            "Upload your data file first, then ask me about student performance.\n\n"
+            "Type help to see all available commands.",
+            "مرحبًا! أنا مساعد SchoolFlow AI 🎓\n\n"
+            "ارفع ملف البيانات أولاً ثم اسألني عن أداء الطلاب.\n\n"
+            "اكتب مساعدة لعرض الأوامر المتاحة."
+        )
+        _render_chat_bubble("assistant", _welcome)
     else:
         for _msg in history:
-            _role    = _msg.get("role", "bot")
-            _content = _msg.get("content", "")
-            _ts_str  = _msg.get("ts", "")
-            _st_role = "user" if _role == "user" else "assistant"
-            with st.chat_message(_st_role):
-                st.markdown(_content)
-                if _ts_str:
-                    st.caption(_ts_str)
+            _render_chat_bubble(
+                _msg.get("role", "assistant"),
+                _msg.get("content", ""),
+                _msg.get("ts", ""),
+            )
 
 # ── Clear button ─────────────────────────────────────────────────────────
 if st.session_state["chat_history"]:
