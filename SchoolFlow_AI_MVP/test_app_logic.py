@@ -10,93 +10,15 @@ import os
 import pandas as pd
 from io import BytesIO
 
-# ── Import the same helpers defined in app.py ──────────────────────────────
-REQUIRED = [
-    "Student code", "Week", "Days scheduled", "Days attended",
-    "Tasks set", "Tasks completed", "Quiz score / 10",
-    "Observation", "Next step",
-]
-OPTIONAL_NAME_COL = "Student name"
-NUMERIC_COLS = [
-    "Week", "Days scheduled", "Days attended",
-    "Tasks set", "Tasks completed", "Quiz score / 10",
-]
+# ── Import canonical logic from app_logic (same module used by the live UI) ─
+_here = os.path.dirname(os.path.abspath(__file__))
+if _here not in sys.path:
+    sys.path.insert(0, _here)
 
-def pct(n, d):
-    return (n / d * 100) if d else 0.0
-
-def safe_text(v):
-    if pd.isna(v):
-        return ""
-    return str(v).strip()
-
-def validate(df):
-    issues = []
-    numeric_temp = df.copy()
-    for c in NUMERIC_COLS:
-        numeric_temp[c] = pd.to_numeric(numeric_temp[c], errors="coerce")
-    for idx, row in numeric_temp.iterrows():
-        code = safe_text(row.get("Student code")) or f"row {idx + 1}"
-        week = row.get("Week")
-        week_label = f"Week {int(week)}" if pd.notna(week) else "Week ?"
-        for col in ["Days scheduled", "Days attended", "Tasks set", "Tasks completed"]:
-            if pd.isna(row[col]):
-                issues.append({"Student code": code, "Week": week_label, "Column": col, "Issue": "Missing value"})
-        if pd.isna(row["Quiz score / 10"]):
-            issues.append({"Student code": code, "Week": week_label, "Column": "Quiz score / 10", "Issue": "Quiz score not recorded"})
-        sched, att = row["Days scheduled"], row["Days attended"]
-        if pd.notna(sched) and pd.notna(att) and att > sched:
-            issues.append({"Student code": code, "Week": week_label, "Column": "Days attended", "Issue": f"Attended ({att:g}) > Scheduled ({sched:g})"})
-        t_set, t_done = row["Tasks set"], row["Tasks completed"]
-        if pd.notna(t_set) and pd.notna(t_done) and t_done > t_set:
-            issues.append({"Student code": code, "Week": week_label, "Column": "Tasks completed", "Issue": f"Completed ({t_done:g}) > Set ({t_set:g})"})
-    return pd.DataFrame(issues)
-
-def build_outputs(df, has_name):
-    df = df.copy()
-    for c in NUMERIC_COLS:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df["Student code"] = df["Student code"].astype(str).str.strip()
-    df = df.dropna(subset=["Student code", "Week"])
-    df["Week"] = df["Week"].astype(int)
-    summary = []
-    for student, g in df.groupby("Student code", sort=True):
-        if has_name:
-            name_val = safe_text(g.sort_values("Week").iloc[-1].get(OPTIONAL_NAME_COL, ""))
-            display_name = name_val if name_val else student
-        else:
-            display_name = student
-        scheduled = g["Days scheduled"].sum(min_count=1)
-        attended  = g["Days attended"].sum(min_count=1)
-        tasks     = g["Tasks set"].sum(min_count=1)
-        completed = g["Tasks completed"].sum(min_count=1)
-        scores    = g["Quiz score / 10"].dropna()
-        latest    = g.sort_values("Week").iloc[-1]
-        summary.append({
-            "Student code": student,
-            "Student name": display_name,
-            "Weeks recorded": int(g["Week"].nunique()),
-            "Attendance": f"{pct(attended, scheduled):.1f}%" if pd.notna(scheduled) and scheduled > 0 else "N/A",
-            "Attendance attended/scheduled": f"{attended:g}/{scheduled:g}" if pd.notna(scheduled) else "N/A",
-            "Task completion": f"{pct(completed, tasks):.1f}%" if pd.notna(tasks) and tasks > 0 else "N/A",
-            "Tasks completed/set": f"{completed:g}/{tasks:g}" if pd.notna(tasks) else "N/A",
-            "Mean quiz / 10": round(float(scores.mean()), 2) if len(scores) else None,
-            "Quiz weeks recorded": int(len(scores)),
-            "Latest observation": safe_text(latest.get("Observation", "")),
-            "Next step": safe_text(latest.get("Next step", "")),
-        })
-    return df, pd.DataFrame(summary)
-
-def make_workbook(clean, summary, weekly):
-    from io import BytesIO
-    import openpyxl
-    out = BytesIO()
-    with pd.ExcelWriter(out, engine="openpyxl") as writer:
-        clean.to_excel(writer,   sheet_name="Validated data",    index=False)
-        summary.to_excel(writer, sheet_name="Student summaries", index=False)
-        weekly.to_excel(writer,  sheet_name="Weekly summary",    index=False)
-    out.seek(0)
-    return out.read()
+from app_logic import (
+    REQUIRED, OPTIONAL_NAME_COL, NUMERIC_COLS,
+    validate, build_outputs, make_workbook,
+)
 
 # ── Test run ────────────────────────────────────────────────────────────────
 PASS = "  PASS"
@@ -161,7 +83,7 @@ errors += 0 if check("Zero score (S05/W3) NOT flagged as missing", not zero_flag
 
 # Phase 3 & core: build_outputs
 print("\n--- Calculations ---")
-clean, summary = build_outputs(data, has_name)
+clean, summary, _weekly_out = build_outputs(data, has_name)
 errors += 0 if check("5 students in summary", len(summary) == 5, f"got {len(summary)}") else 1
 errors += 0 if check("Student name column in summary", "Student name" in summary.columns) else 1
 
@@ -192,7 +114,7 @@ errors += 0 if check("4 weeks in weekly summary", len(weekly) == 4, f"got {len(w
 
 # Excel export
 print("\n--- Excel export ---")
-wb_bytes = make_workbook(clean, summary, weekly)
+wb_bytes = make_workbook(clean, summary, weekly).read()  # app_logic returns BytesIO
 errors += 0 if check("Workbook bytes non-empty", len(wb_bytes) > 0, f"{len(wb_bytes)} bytes") else 1
 wb_check = pd.ExcelFile(BytesIO(wb_bytes))
 expected_sheets = {"Validated data", "Student summaries", "Weekly summary"}

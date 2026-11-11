@@ -1,0 +1,1 @@
+# SchoolFlow AI Assistant package
