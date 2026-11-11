@@ -348,6 +348,43 @@ div.stDownloadButton > button:hover {
     font-size: 0.87rem !important;
 }
 
+/* ── Global text contrast on light main canvas ──────────────────────── */
+[data-testid="stMain"] {
+    color: #1F2937 !important;
+}
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h1,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h2,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h3,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h4,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h5,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h6,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] li,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] td,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] th,
+[data-testid="stMain"] label,
+[data-testid="stMain"] [data-testid="stCaptionContainer"],
+[data-testid="stMain"] .stCaption {
+    color: #263238 !important;
+    -webkit-text-fill-color: #263238 !important;
+}
+[data-testid="stMain"] [data-testid="stDataFrame"] {
+    color: #263238 !important;
+}
+[data-testid="stMain"] [data-testid="stDataFrame"] * {
+    color: #263238 !important;
+    -webkit-text-fill-color: #263238 !important;
+}
+.sf-metric-label, .sf-quick-sub, .sf-obs-empty, .stCaption {
+    color: #4B5563 !important;
+}
+[data-testid="stMain"] input,
+[data-testid="stMain"] textarea,
+[data-testid="stMain"] select {
+    color: #1F2937 !important;
+    -webkit-text-fill-color: #1F2937 !important;
+}
+
 /* ── Chat input — high contrast on desktop and mobile ───────────────── */
 [data-testid="stChatInput"] {
     background: #202824 !important;
