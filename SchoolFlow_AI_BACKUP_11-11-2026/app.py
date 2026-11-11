@@ -420,46 +420,49 @@ div.stDownloadButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Chat message bubbles — dark theme with readable light text ──────── */
-/* Keep chat surfaces dark to match the assistant input and green identity. */
+/* ── Chat area — dark surfaces only, no white message background ─────── */
+/* Streamlit versions use different wrappers; cover the message, content,
+   and markdown layers so the assistant reply cannot inherit a light surface. */
+[data-testid="stChatMessage"],
+[data-testid="stChatMessageContent"],
+[data-testid="stChatMessage"] > div,
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
+.stChatMessage,
+.stChatMessageContent {
+    background-color: #202824 !important;
+    background: #202824 !important;
+    border-color: #527568 !important;
+}
 [data-testid="stChatMessage"],
 .stChatMessage {
-    background: #202824 !important;
     border: 1px solid #527568 !important;
     border-radius: 12px !important;
     padding: 0.85rem 1rem !important;
     margin: 0.55rem 0 !important;
 }
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] *,
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] span,
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li,
-[data-testid="stChatMessage"] [data-testid="stChatMessageContent"],
-[data-testid="stChatMessage"] [data-testid="stCaptionContainer"],
-[data-testid="stChatMessage"] [data-testid="stCaptionContainer"] *,
-.stChatMessage [data-testid="stMarkdownContainer"],
-.stChatMessage [data-testid="stMarkdownContainer"] *,
-.stChatMessage p,
-.stChatMessage span,
-.stChatMessage li {
-    color: #F9FAFB !important;
-    -webkit-text-fill-color: #F9FAFB !important;
+[data-testid="stChatMessage"] *,
+[data-testid="stChatMessageContent"] *,
+.stChatMessage *,
+.stChatMessageContent * {
+    color: #FFFFFF !important;
+    -webkit-text-fill-color: #FFFFFF !important;
     opacity: 1 !important;
     text-shadow: none !important;
 }
 [data-testid="stChatMessage"] a,
-.stChatMessage a {
-    color: #D4A017 !important;
-    -webkit-text-fill-color: #D4A017 !important;
+[data-testid="stChatMessageContent"] a,
+.stChatMessage a,
+.stChatMessageContent a {
+    color: #E6B93F !important;
+    -webkit-text-fill-color: #E6B93F !important;
 }
 [data-testid="stChatMessage"] code,
 [data-testid="stChatMessage"] pre,
 .stChatMessage code,
 .stChatMessage pre {
     background: #17211D !important;
-    color: #F9FAFB !important;
-    -webkit-text-fill-color: #F9FAFB !important;
+    color: #FFFFFF !important;
+    -webkit-text-fill-color: #FFFFFF !important;
 }
 /* ── Expander ────────────────────────────────────────────────────────── */
 .streamlit-expanderHeader {
