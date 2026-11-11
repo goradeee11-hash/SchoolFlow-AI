@@ -1,0 +1,157 @@
+import streamlit as st
+import pandas as pd
+from io import BytesIO
+from datetime import date
+
+st.set_page_config(page_title="SchoolFlow AI", page_icon="📘", layout="wide")
+st.title("SchoolFlow AI")
+st.caption("نسخة تجريبية أولى — لمعلم واحد — رفع Excel ثم إعداد ملخص وتقارير")
+
+st.info("تنبيه: ابدأ ببيانات تجريبية أو بيانات مصرح باستخدامها. لا ترفع بيانات طلاب حقيقية قبل موافقة المدرسة واعتماد ضوابط الخصوصية.")
+
+REQUIRED = [
+    "Student code", "Week", "Days scheduled", "Days attended",
+    "Tasks set", "Tasks completed", "Quiz score / 10",
+    "Observation", "Next step"
+]
+
+def pct(n, d):
+    return (n / d * 100) if d else 0.0
+
+def safe_text(v):
+    if pd.isna(v):
+        return ""
+    return str(v).strip()
+
+def build_outputs(df):
+    df = df.copy()
+    numeric = ["Week", "Days scheduled", "Days attended", "Tasks set",
+               "Tasks completed", "Quiz score / 10"]
+    for c in numeric:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df["Student code"] = df["Student code"].astype(str).str.strip()
+    df = df.dropna(subset=["Student code", "Week"])
+    df["Days scheduled"] = df["Days scheduled"].fillna(0)
+    df["Days attended"] = df["Days attended"].fillna(0)
+    df["Tasks set"] = df["Tasks set"].fillna(0)
+    df["Tasks completed"] = df["Tasks completed"].fillna(0)
+
+    summary = []
+    for student, g in df.groupby("Student code", sort=True):
+        scheduled = g["Days scheduled"].sum()
+        attended = g["Days attended"].sum()
+        tasks = g["Tasks set"].sum()
+        completed = g["Tasks completed"].sum()
+        scores = g["Quiz score / 10"].dropna()
+        latest = g.sort_values("Week").iloc[-1]
+        summary.append({
+            "Student code": student,
+            "Weeks recorded": int(g["Week"].nunique()),
+            "Attendance": f"{pct(attended, scheduled):.1f}%",
+            "Attendance attended/scheduled": f"{attended:g}/{scheduled:g}",
+            "Task completion": f"{pct(completed, tasks):.1f}%",
+            "Tasks completed/set": f"{completed:g}/{tasks:g}",
+            "Mean quiz / 10": round(float(scores.mean()), 2) if len(scores) else None,
+            "Latest observation": safe_text(latest.get("Observation")),
+            "Next step": safe_text(latest.get("Next step")),
+        })
+    summary_df = pd.DataFrame(summary)
+
+    weekly = df.groupby("Week", sort=True).agg(
+        **{
+            "Attended days": ("Days attended", "sum"),
+            "Scheduled days": ("Days scheduled", "sum"),
+            "Tasks completed": ("Tasks completed", "sum"),
+            "Tasks set": ("Tasks set", "sum"),
+            "Mean quiz / 10": ("Quiz score / 10", "mean"),
+        }
+    ).reset_index()
+    weekly["Attendance rate"] = weekly.apply(
+        lambda r: f"{pct(r['Attended days'], r['Scheduled days']):.1f}%", axis=1)
+    weekly["Task completion"] = weekly.apply(
+        lambda r: f"{pct(r['Tasks completed'], r['Tasks set']):.1f}%", axis=1)
+    weekly["Mean quiz / 10"] = weekly["Mean quiz / 10"].round(2)
+    return df, summary_df, weekly
+
+def make_workbook(clean, summary, weekly):
+    out = BytesIO()
+    with pd.ExcelWriter(out, engine="openpyxl") as writer:
+        clean.to_excel(writer, sheet_name="Validated data", index=False)
+        summary.to_excel(writer, sheet_name="Student summaries", index=False)
+        weekly.to_excel(writer, sheet_name="Weekly summary", index=False)
+    out.seek(0)
+    return out
+
+def parent_message(row, language):
+    code = row["Student code"]
+    attendance = row["Attendance"]
+    completion = row["Task completion"]
+    score = row["Mean quiz / 10"]
+    obs = row["Latest observation"] or "No observation was provided."
+    step = row["Next step"] or "The next learning step will be agreed by the teacher."
+    if language == "English":
+        score_text = f"{score}/10" if pd.notna(score) else "not recorded"
+        return (f"Hello,\n\nHere is {code}'s learning update. Attendance: {attendance}. "
+                f"Task completion: {completion}. Mean quiz score: {score_text}.\n\n"
+                f"Teacher observation: {obs}\nNext step: {step}\n\n"
+                "Please contact the teacher if you would like to discuss this update.\n\nThank you.")
+    score_text = f"{score}/10" if pd.notna(score) else "غير مسجل"
+    return (f"مرحبًا،\n\nهذا ملخص متابعة الطالب ({code}). "
+            f"الحضور: {attendance}. إنجاز المهام: {completion}. متوسط الاختبارات: {score_text}.\n\n"
+            f"ملاحظة المعلم: {obs}\nالخطوة القادمة: {step}\n\n"
+            "يرجى التواصل مع المعلم إذا رغبتم في مناقشة هذا التقرير.\n\nشكرًا لتعاونكم.")
+
+st.subheader("1) ارفع ملف متابعة الطلاب")
+uploaded = st.file_uploader("اختر ملف Excel بصيغة .xlsx", type=["xlsx"])
+if uploaded:
+    try:
+        xls = pd.ExcelFile(uploaded)
+        sheet = st.selectbox("اختر ورقة البيانات", xls.sheet_names,
+                             index=xls.sheet_names.index("Weekly tracking") if "Weekly tracking" in xls.sheet_names else 0)
+        raw = pd.read_excel(uploaded, sheet_name=sheet, header=4)
+        raw.columns = [str(c).strip() for c in raw.columns]
+        missing = [c for c in REQUIRED if c not in raw.columns]
+        if missing:
+            st.error("الأعمدة التالية غير موجودة: " + "، ".join(missing))
+            st.write("الأعمدة التي وجدناها:", list(raw.columns))
+        else:
+            data = raw[REQUIRED].dropna(how="all")
+            st.success(f"تمت قراءة {len(data)} سجلات من ورقة: {sheet}")
+            st.write("معاينة البيانات", data.head(10))
+            if st.button("تحليل البيانات وإنشاء التقارير", type="primary"):
+                clean, summary, weekly = build_outputs(data)
+                st.session_state["clean"] = clean
+                st.session_state["summary"] = summary
+                st.session_state["weekly"] = weekly
+                st.success("اكتمل التحليل الأولي. راجع النتائج قبل استخدامها.")
+    except Exception as e:
+        st.error(f"تعذر قراءة الملف: {e}")
+
+if "summary" in st.session_state:
+    clean = st.session_state["clean"]
+    summary = st.session_state["summary"]
+    weekly = st.session_state["weekly"]
+    st.divider()
+    st.subheader("2) ملخص المعلم")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("عدد الطلاب", len(summary))
+    c2.metric("عدد الأسابيع", int(clean["Week"].nunique()))
+    c3.metric("عدد السجلات", len(clean))
+    st.subheader("3) ملخص أسبوعي")
+    st.dataframe(weekly, use_container_width=True, hide_index=True)
+    st.subheader("4) ملخص كل طالب")
+    st.dataframe(summary, use_container_width=True, hide_index=True)
+
+    st.subheader("5) إنشاء رسائل أولياء الأمور")
+    language = st.radio("لغة الرسالة", ["English", "العربية"], horizontal=True)
+    for _, row in summary.iterrows():
+        with st.expander(f"رسالة الطالب: {row['Student code']}"):
+            st.text_area("راجع الرسالة قبل إرسالها", parent_message(row, language),
+                        height=210, key=f"msg_{row['Student code']}_{language}")
+
+    st.subheader("6) تنزيل النتائج")
+    workbook = make_workbook(clean, summary, weekly)
+    st.download_button("تنزيل ملف التقارير Excel", data=workbook,
+                       file_name="SchoolFlow_AI_Report.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.caption("هذه نسخة أولية: لا ترسل رسائل تلقائيًا، ولا تستبدل مراجعة المعلم. يجب التحقق من دقة البيانات والقوالب مع منتصر قبل اعتمادها.")
