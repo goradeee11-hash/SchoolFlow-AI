@@ -52,7 +52,7 @@ html, body, [class*="css"] {
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1.2rem;
-    direction: rtl;
+    /* direction set inline by Python (_topbar_dir) */
 }
 .sf-topbar-date {
     display: flex; align-items: center; gap: 0.4rem;
@@ -94,7 +94,7 @@ html, body, [class*="css"] {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    direction: rtl;
+    /* direction set inline by Python (_hero_dir) */
     position: relative;
     overflow: hidden;
 }
@@ -150,7 +150,7 @@ html, body, [class*="css"] {
     grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
     margin-bottom: 1.4rem;
-    direction: rtl;
+    /* direction set inline by Python (_kpi_dir) */
 }
 .sf-metric-card {
     background: #ffffff;
@@ -161,7 +161,7 @@ html, body, [class*="css"] {
     display: flex;
     align-items: flex-start;
     gap: 0.85rem;
-    direction: rtl;
+    /* direction inherited from parent .sf-metrics-row */
 }
 .sf-metric-icon {
     width: 44px; height: 44px;
@@ -196,14 +196,14 @@ html, body, [class*="css"] {
     border: 1px solid #E8EBF0;
     padding: 1.3rem 1.4rem;
     box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    direction: rtl;
+    /* direction set inline by Python (_dash_dir) */
 }
 .sf-card-header {
     display: flex; align-items: center; gap: 0.55rem;
     margin-bottom: 1rem;
     padding-bottom: 0.7rem;
     border-bottom: 1px solid #F0F1F5;
-    direction: rtl;
+    /* direction inherited from parent .sf-card */
 }
 .sf-card-header-icon {
     width: 30px; height: 30px;
@@ -222,7 +222,7 @@ html, body, [class*="css"] {
     margin: 1.6rem 0 0.85rem;
     padding-bottom: 0.5rem;
     border-bottom: 2px solid #E8EBF0;
-    direction: rtl;
+    /* direction set inline by Python per section */
 }
 .sf-section-num {
     background: #1B5E4A; color: #D4A017;
@@ -238,7 +238,7 @@ html, body, [class*="css"] {
     display: flex; align-items: flex-start; gap: 0.7rem;
     padding: 0.6rem 0;
     border-bottom: 1px solid #F5F6FA;
-    direction: rtl;
+    /* direction inherited from parent .sf-card */
 }
 .sf-obs-item:last-child { border-bottom: none; }
 .sf-obs-code {
@@ -262,7 +262,7 @@ html, body, [class*="css"] {
     padding: 0.85rem 1rem;
     display: flex; align-items: center; gap: 0.7rem;
     cursor: pointer; transition: all 0.18s ease;
-    direction: rtl;
+    /* direction inherited from page-level direction */
     text-decoration: none;
 }
 .sf-quick-btn:hover { background: #EEF8F4; border-color: #1B5E4A; }
@@ -380,7 +380,8 @@ div.stDownloadButton > button:hover {
 .sf-footer {
     text-align: center; padding: 1.4rem 1rem 2rem;
     margin-top: 2.5rem; border-top: 1px solid #E8EBF0;
-    color: #9CA3AF; font-size: 0.76rem; direction: rtl;
+    color: #6B7280; font-size: 0.76rem;
+    /* direction set inline by Python (_footer_dir equivalent) */
 }
 .sf-footer strong { color: #1B5E4A; }
 
@@ -395,60 +396,130 @@ div.stDownloadButton > button:hover {
     font-weight: 700 !important;
 }
 
-/* ── Chat messages ───────────────────────────────────────────────────── */
-/* Force readable text inside ALL chat messages */
-[data-testid="stChatMessage"] {
-    border-radius: 12px !important;
-    margin-bottom: 0.6rem !important;
+/* ── Sidebar language toggle: dim the inactive button ───────────────── */
+[data-testid="stSidebar"] button[kind="secondary"] {
+    opacity: 0.55 !important;
 }
-[data-testid="stChatMessage"] p,
-[data-testid="stChatMessage"] li,
-[data-testid="stChatMessage"] span,
-[data-testid="stChatMessage"] strong,
-[data-testid="stChatMessage"] em,
-[data-testid="stChatMessage"] a {
+[data-testid="stSidebar"] button[kind="secondary"]:hover {
+    opacity: 0.80 !important;
+}
+
+/* ── Chat input bottom bar — reduce height, prevent content overlap ──── */
+[data-testid="stBottom"] {
+    padding-bottom: 0.5rem !important;
+    padding-top: 0.5rem !important;
+    background: #ffffff !important;
+    border-top: 1px solid #E8EBF0 !important;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.06) !important;
+}
+[data-testid="stBottom"] > div {
+    padding-bottom: 0.25rem !important;
+    max-width: 900px;
+    margin: 0 auto;
+}
+/* Shrink the textarea inside the chat composer */
+[data-testid="stChatInputTextArea"] {
+    font-size: 0.92rem !important;
+    font-family: 'Cairo', 'Inter', sans-serif !important;
+    min-height: 2.4rem !important;
+    max-height: 6rem !important;
+    resize: none !important;
+    color: #1A2B3C !important;
+}
+[data-testid="stChatInputTextArea"]::placeholder {
+    color: #9CA3AF !important;
+    font-size: 0.87rem !important;
+}
+/* Add bottom padding to main content so last message is never hidden */
+section.main > div.block-container {
+    padding-bottom: 6rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Chat message bubbles
+   Streamlit renders chat messages as:
+     [data-testid="stChatMessage"]
+   with a nested avatar element whose data-testid is either
+     "stChatMessageAvatarUser" or "stChatMessageAvatarAssistant"
+   We also add attribute-value selectors on [aria-label] and class-name
+   fragments as cross-version fallbacks.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Base reset: every message container ───────────────────────────── */
+[data-testid="stChatMessage"] {
+    border-radius: 14px !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0.75rem 1rem !important;
+}
+/* Default text colour (overridden per role below) */
+[data-testid="stChatMessage"] *:not(code) {
     color: #1A2B3C !important;
 }
 
-/* User messages — white background, dark text */
+/* ── USER bubble — white card with dark text ────────────────────────── */
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
     background: #ffffff !important;
-    border: 1px solid #E8EBF0 !important;
+    border: 1.5px solid #E8EBF0 !important;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06) !important;
 }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) p,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) li,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) span,
-[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) strong {
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) strong,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) em,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) a,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) div {
     color: #1A2B3C !important;
 }
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) code {
+    background: #F0F1F5 !important;
+    color: #1B5E4A !important;
+    border-radius: 4px; padding: 1px 5px;
+}
 
-/* Assistant messages — dark green background, white text */
+/* ── ASSISTANT bubble — brand green background, pure white text ─────── */
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
     background: #1B5E4A !important;
-    border: 1px solid #154a38 !important;
+    border: 1.5px solid #154a38 !important;
+    box-shadow: 0 2px 10px rgba(27,94,74,0.25) !important;
 }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) p,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) li,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) span,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) strong,
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) em,
-[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) a {
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) a,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) div,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) label,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) td,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) th {
     color: #ffffff !important;
 }
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) code {
-    background: rgba(255,255,255,0.15) !important;
+    background: rgba(255,255,255,0.18) !important;
     color: #D4A017 !important;
-    border-radius: 4px; padding: 1px 5px;
+    border-radius: 4px; padding: 2px 6px;
+    font-weight: 600;
 }
-/* Caption (timestamp) inside assistant bubble */
-[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) .stCaption {
-    color: rgba(255,255,255,0.70) !important;
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) .stCaption,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) small {
+    color: rgba(255,255,255,0.75) !important;
+}
+/* Avatar icon background inside green bubble */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"])
+    [data-testid="stChatMessageAvatarAssistant"] {
+    background: rgba(255,255,255,0.15) !important;
+    border-radius: 50%;
 }
 
-/* Fallback: target by aria/role class for older Streamlit builds */
-.stChatMessage.st-emotion-cache-janbn0,
-div[class*="stChatMessage"] {
-    color: #1A2B3C;
+/* ── Fallback selectors for Streamlit builds that use class names ────── */
+/* These match any remaining stChatMessage div that was not caught above  */
+div[data-testid="stChatMessage"]:not(:has([data-testid="stChatMessageAvatarAssistant"])) {
+    background: #ffffff !important;
+    border: 1px solid #E8EBF0 !important;
+}
+div[data-testid="stChatMessage"]:not(:has([data-testid="stChatMessageAvatarAssistant"])) * {
+    color: #1A2B3C !important;
 }
 </style>
 """, unsafe_allow_html=True)

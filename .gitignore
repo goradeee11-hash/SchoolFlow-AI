@@ -11,4 +11,6 @@ SchoolFlow_AI_MVP_Report.xlsx
 SchoolFlow_AI_Report.xlsx
 
 # Full .streamlit directory (not just secrets)
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
+!.streamlit/secrets.toml.template
