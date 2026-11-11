@@ -420,13 +420,12 @@ div.stDownloadButton > button:hover {
     color: #FFFFFF !important;
 }
 
-/* ── Chat message bubbles — force readable text on mobile/desktop ────── */
-/* Streamlit chat messages can inherit theme text colors; force every text
-   node in the message body to a dark color with full opacity. */
+/* ── Chat message bubbles — dark theme with readable light text ──────── */
+/* Keep chat surfaces dark to match the assistant input and green identity. */
 [data-testid="stChatMessage"],
 .stChatMessage {
-    background: #FFFFFF !important;
-    border: 1px solid #D9E1E7 !important;
+    background: #202824 !important;
+    border: 1px solid #527568 !important;
     border-radius: 12px !important;
     padding: 0.85rem 1rem !important;
     margin: 0.55rem 0 !important;
@@ -436,34 +435,31 @@ div.stDownloadButton > button:hover {
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] span,
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li,
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] strong,
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] em,
+[data-testid="stChatMessage"] [data-testid="stChatMessageContent"],
 [data-testid="stChatMessage"] [data-testid="stCaptionContainer"],
 [data-testid="stChatMessage"] [data-testid="stCaptionContainer"] *,
 .stChatMessage [data-testid="stMarkdownContainer"],
 .stChatMessage [data-testid="stMarkdownContainer"] *,
 .stChatMessage p,
 .stChatMessage span,
-.stChatMessage li,
-.stChatMessage strong,
-.stChatMessage em {
-    color: #17212B !important;
-    -webkit-text-fill-color: #17212B !important;
+.stChatMessage li {
+    color: #F9FAFB !important;
+    -webkit-text-fill-color: #F9FAFB !important;
     opacity: 1 !important;
     text-shadow: none !important;
 }
 [data-testid="stChatMessage"] a,
 .stChatMessage a {
-    color: #126B50 !important;
-    -webkit-text-fill-color: #126B50 !important;
+    color: #D4A017 !important;
+    -webkit-text-fill-color: #D4A017 !important;
 }
 [data-testid="stChatMessage"] code,
 [data-testid="stChatMessage"] pre,
 .stChatMessage code,
 .stChatMessage pre {
-    background: #F1F5F3 !important;
-    color: #17212B !important;
-    -webkit-text-fill-color: #17212B !important;
+    background: #17211D !important;
+    color: #F9FAFB !important;
+    -webkit-text-fill-color: #F9FAFB !important;
 }
 /* ── Expander ────────────────────────────────────────────────────────── */
 .streamlit-expanderHeader {
