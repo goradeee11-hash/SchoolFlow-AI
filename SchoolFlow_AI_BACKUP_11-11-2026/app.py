@@ -348,6 +348,41 @@ div.stDownloadButton > button:hover {
     font-size: 0.87rem !important;
 }
 
+/* ── Chat input — high contrast on desktop and mobile ───────────────── */
+[data-testid="stChatInput"] {
+    background: #202824 !important;
+    border: 1px solid #527568 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.16) !important;
+}
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInput"] textarea:focus {
+    background: #202824 !important;
+    color: #FFFFFF !important;
+    -webkit-text-fill-color: #FFFFFF !important;
+    caret-color: #D4A017 !important;
+    font-family: 'Cairo', 'Inter', sans-serif !important;
+    font-size: 0.95rem !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #D1D5DB !important;
+    -webkit-text-fill-color: #D1D5DB !important;
+    opacity: 1 !important;
+}
+[data-testid="stChatInput"]:focus-within {
+    border-color: #D4A017 !important;
+    box-shadow: 0 0 0 2px rgba(212,160,23,0.22) !important;
+}
+[data-testid="stChatInput"] button {
+    background: #1B5E4A !important;
+    color: #FFFFFF !important;
+    border-radius: 9px !important;
+}
+[data-testid="stChatInput"] button svg {
+    fill: #FFFFFF !important;
+    color: #FFFFFF !important;
+}
+
 /* ── Expander ────────────────────────────────────────────────────────── */
 .streamlit-expanderHeader {
     background: #ffffff !important;
