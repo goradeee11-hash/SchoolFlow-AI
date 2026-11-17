@@ -353,18 +353,32 @@ def route(user_input: str, lang: str = "ar", online_ai_enabled: bool = False) ->
 
     else:
         # Unknown intent.
-        # LLM fallback: called only when the caller has explicitly set
-        # online_ai_enabled=True.  try_llm_enhance() adds a second guard:
-        # it returns None immediately if the openai package is not installed
-        # or no API key is configured — so no network call can be made
-        # unless both conditions are true.
-        # Only the teacher's typed query string (text) is forwarded;
-        # no student names, codes, grades, attendance figures, or
-        # spreadsheet data are passed to try_llm_enhance().
+        # The UI warns that this query is sent verbatim when online is enabled.
         _llm_resp = None
         if online_ai_enabled:
             from assistant.llm_client import try_llm_enhance
-            _llm_resp = try_llm_enhance(text)   # returns None if offline/key not configured
+            try:
+                _llm_resp = try_llm_enhance(text)
+            except RuntimeError as error:
+                _reason = str(error)
+                _errors = {
+                    "no_key": ("OpenAI API key is not configured.", "لم يُهيّأ مفتاح OpenAI API."),
+                    "no_package": ("The OpenAI package is not installed.", "حزمة OpenAI غير مثبتة."),
+                    "bad_key": ("OpenAI rejected the API key.", "رفض OpenAI مفتاح API."),
+                    "rate_limit": ("OpenAI request limit reached.", "تم بلوغ حد طلبات OpenAI."),
+                    "connection_error": ("Could not connect to OpenAI.", "تعذّر الاتصال بـOpenAI."),
+                    "api_error": ("The OpenAI request failed.", "فشل طلب OpenAI."),
+                    "empty_response": ("OpenAI returned an empty response.", "أعاد OpenAI ردًا فارغًا."),
+                    "shared_demo_disabled": (
+                        "OpenAI is disabled in the shared demo.",
+                        "اتصال OpenAI متوقف في العرض المشترك.",
+                    ),
+                }
+                _message = _errors.get(_reason, _errors["api_error"])
+                return {
+                    "intent": "unknown", "response": _message[0 if lang == "en" else 1],
+                    "data": None, "ok": False,
+                }
 
         if _llm_resp:
             result = {"ok": True, "message": _llm_resp}

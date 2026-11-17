@@ -7,9 +7,10 @@ then verifies intent routing and tool functions for 20 scenarios.
 """
 import sys, os, types, unittest, pandas as pd
 from io import BytesIO
+from unittest.mock import Mock, patch
 
 # ---------------------------------------------------------------------------
-# 1.  Stub streamlit before any import touches it
+# 1.  Streamlit stub used only during each assistant test
 # ---------------------------------------------------------------------------
 _state: dict = {}
 
@@ -75,8 +76,6 @@ class _FakeST(types.ModuleType):
     spinner         = staticmethod(_noop_ctx)
     cache_data      = staticmethod(lambda f=None, **kw: f if f else lambda g: g)
 
-sys.modules["streamlit"] = _FakeST("streamlit")
-
 # ---------------------------------------------------------------------------
 # 2.  Patch sys.path so assistant package resolves
 # ---------------------------------------------------------------------------
@@ -120,8 +119,6 @@ def _setup_state():
     _state["has_name"] = has_name
     _state["issues"]   = issues
 
-_setup_state()
-
 # ---------------------------------------------------------------------------
 # 4.  Import router
 # ---------------------------------------------------------------------------
@@ -129,9 +126,55 @@ from assistant.intent_router import route
 from assistant.llm_client    import get_mode, is_online
 
 # ---------------------------------------------------------------------------
-# 5.  Tests
+# 5.  Test isolation
 # ---------------------------------------------------------------------------
-class TestAssistantOffline(unittest.TestCase):
+class _AssistantTestCase(unittest.TestCase):
+    def setUp(self):
+        self._had_streamlit = "streamlit" in sys.modules
+        self._previous_streamlit = sys.modules.get("streamlit")
+        sys.modules["streamlit"] = _FakeST("streamlit")
+        _setup_state()
+
+    def tearDown(self):
+        if self._had_streamlit:
+            sys.modules["streamlit"] = self._previous_streamlit
+        else:
+            sys.modules.pop("streamlit", None)
+
+
+# ---------------------------------------------------------------------------
+# 6.  Tests
+# ---------------------------------------------------------------------------
+class TestAssistantOffline(_AssistantTestCase):
+
+    def test_online_request_without_key_is_an_explicit_failure(self):
+        with patch("assistant.llm_client._resolve_api_key", return_value=None):
+            result = route("Plan a synthetic lesson", lang="en", online_ai_enabled=True)
+        self.assertFalse(result["ok"])
+        self.assertIn("key is not configured", result["response"])
+
+    def test_provider_failure_is_not_reported_as_success(self):
+        with patch("assistant.llm_client.try_llm_enhance", side_effect=RuntimeError("connection_error")):
+            result = route("Plan a synthetic lesson", lang="en", online_ai_enabled=True)
+        self.assertFalse(result["ok"])
+        self.assertIn("Could not connect", result["response"])
+
+    def test_official_client_request_uses_only_supplied_text(self):
+        from assistant.llm_client import call_llm
+        completion = Mock()
+        completion.create.return_value.choices = [
+            types.SimpleNamespace(message=types.SimpleNamespace(content="Synthetic plan"))
+        ]
+        client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completion))
+        provider = types.SimpleNamespace(OpenAI=Mock(return_value=client))
+        with patch.dict(sys.modules, {"openai": provider}), \
+             patch("assistant.llm_client._resolve_api_key", return_value="synthetic-key"), \
+             patch("assistant.llm_client._resolve_model", return_value="synthetic-model"):
+            result = call_llm("Plan a lesson", "Aggregate synthetic context")
+        self.assertEqual(result, "Synthetic plan")
+        messages = completion.create.call_args.kwargs["messages"]
+        self.assertEqual(messages[-1]["content"], "Plan a lesson")
+        self.assertIn("Aggregate synthetic context", messages[1]["content"])
 
     # ── Mode ───────────────────────────────────────────────────────────────
     def test_01_mode_is_offline(self):
@@ -280,10 +323,10 @@ class TestAssistantOffline(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 6.  Adversarial & bilingual tests
 # ---------------------------------------------------------------------------
-class TestAdversarialAndBilingual(unittest.TestCase):
+class TestAdversarialAndBilingual(_AssistantTestCase):
     """
     10 adversarial tests + bilingual verification.
-    All rely on the same _state already loaded by _setup_state() above.
+    Each test starts with fresh analysis data in the isolated fake state.
     """
 
     # ── Test 23: ambiguous partial name match ──────────────────────────────
@@ -437,6 +480,80 @@ class TestAdversarialAndBilingual(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 8.  Task-0 regression: list_students() without Student name column
+# ---------------------------------------------------------------------------
+class TestTask0ListStudentsNoName(_AssistantTestCase):
+    """
+    Regression test for the Bug fixed in Task 0:
+    list_students() must NOT raise KeyError when 'Student name' column
+    is absent from the summary DataFrame.
+
+    Strategy: inject a summary that has no 'Student name' column into
+    _state, run the command, restore the original state.
+    """
+
+    def test_35_list_students_no_name_column(self):
+        """
+        list_students() with a summary that has no 'Student name' column
+        must return ok=True and list students by code only.
+        """
+        backup_summary = _state["summary"].copy()
+        try:
+            # Build a summary without 'Student name'
+            no_name_summary = backup_summary.drop(
+                columns=["Student name"], errors="ignore"
+            )
+            self.assertNotIn(
+                "Student name", no_name_summary.columns,
+                msg="Pre-condition: test summary must not have Student name column"
+            )
+            _state["summary"] = no_name_summary
+
+            r = route("قائمة الطلاب", lang="ar")
+
+            # Must succeed — no KeyError
+            self.assertTrue(r["ok"],
+                msg=f"list_students() must return ok=True without Student name column. Got: {r}")
+
+            # Must still list known student codes
+            self.assertIn("S01", r["response"])
+            self.assertIn("S02", r["response"])
+
+            # data key must be a list (not crash)
+            self.assertIsInstance(r["data"], list,
+                msg="data must be a list of dicts")
+
+            # Each dict must contain 'Student code' but NOT 'Student name'
+            for entry in r["data"]:
+                self.assertIn("Student code", entry,
+                    msg="Each data entry must have 'Student code'")
+                self.assertNotIn("Student name", entry,
+                    msg="'Student name' must not appear in data when column is absent")
+
+        finally:
+            _state["summary"] = backup_summary
+
+    def test_36_list_students_with_name_column_unchanged(self):
+        """
+        list_students() behaviour must be identical to pre-fix when
+        'Student name' column IS present — no regression.
+        """
+        r = route("قائمة الطلاب", lang="ar")
+
+        self.assertTrue(r["ok"])
+        # All 5 student codes present
+        for code in ("S01", "S02", "S03", "S04", "S05"):
+            self.assertIn(code, r["response"],
+                msg=f"{code} must appear in list_students() response")
+
+        # data entries include both fields
+        for entry in r["data"]:
+            self.assertIn("Student code", entry)
+            self.assertIn("Student name", entry,
+                msg="'Student name' must be in data when column is present")
+
+
+# ---------------------------------------------------------------------------
 # 7.  Runner
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -446,6 +563,7 @@ if __name__ == "__main__":
     suite  = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(TestAssistantOffline))
     suite.addTests(loader.loadTestsFromTestCase(TestAdversarialAndBilingual))
+    suite.addTests(loader.loadTestsFromTestCase(TestTask0ListStudentsNoName))
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     print()

@@ -7,8 +7,8 @@ Designed so that:
 1. The app works 100% offline when no API key is configured.
 2. Adding an OpenAI key later enables richer natural language understanding
    without changing any other file.
-3. No student PII is sent to external services — only anonymised summaries
-   and the teacher's own query are included in any API call.
+3. Only the teacher's query and optional caller-supplied summary are sent.
+   The caller must not include student identifiers or sensitive data.
 
 Configuration (when ready):
     .streamlit/secrets.toml
@@ -28,9 +28,12 @@ _DEFAULT_MODEL   = "gpt-4o-mini"
 _MAX_TOKENS      = 512
 _SYSTEM_PROMPT   = (
     "You are SchoolFlow AI Assistant, a helpful bilingual (Arabic/English) "
-    "teaching assistant. You help teachers analyse student performance data. "
+    "teaching assistant. Help teachers plan lessons, activities and questions, "
+    "including Bloom's taxonomy and the nine Gagne instructional events. "
+    "Help interpret only the performance information supplied to you. "
     "You never invent grades, attendance figures, or student names. "
-    "When you cannot find data, say so clearly. "
+    "When information is missing, say so clearly. Recommendations require "
+    "teacher review and must not claim to access records you have not received. "
     "Respond in the same language the teacher used."
 )
 
@@ -52,7 +55,7 @@ def _resolve_api_key() -> str | None:
         key = st.secrets.get("openai", {}).get("api_key") or st.secrets.get("OPENAI_API_KEY")
         if key:
             return key
-    except Exception:
+    except (ImportError, FileNotFoundError):
         pass
 
     # Fall back to environment variable
@@ -63,7 +66,7 @@ def _resolve_model() -> str:
     try:
         import streamlit as st
         return st.secrets.get("openai", {}).get("model", _DEFAULT_MODEL)
-    except Exception:
+    except (ImportError, FileNotFoundError):
         pass
     return os.environ.get("OPENAI_MODEL", _DEFAULT_MODEL)
 
@@ -74,6 +77,8 @@ def _resolve_model() -> str:
 
 def is_online() -> bool:
     """Return True only if an API key is available AND openai package is importable."""
+    if os.environ.get("SCHOOLFLOW_SHARED_DEMO") == "1":
+        return False
     try:
         import openai  # noqa: F401
         return bool(_resolve_api_key())
@@ -98,6 +103,8 @@ def call_llm(user_message: str, context_summary: str = "") -> str:
     context_summary should contain only aggregate numbers (e.g.
     "5 students, 4 weeks, avg attendance 92%") — no student names/IDs.
     """
+    if os.environ.get("SCHOOLFLOW_SHARED_DEMO") == "1":
+        raise RuntimeError("shared_demo_disabled")
     api_key = _resolve_api_key()
     if not api_key:
         raise RuntimeError("no_key")
@@ -125,41 +132,24 @@ def call_llm(user_message: str, context_summary: str = "") -> str:
             max_tokens=_MAX_TOKENS,
             temperature=0.3,
         )
-        return response.choices[0].message.content.strip()
+        content = response.choices[0].message.content if response.choices else None
+        if not content or not content.strip():
+            raise RuntimeError("empty_response")
+        return content.strip()
     except openai.AuthenticationError:
         raise RuntimeError("bad_key")
     except openai.RateLimitError:
         raise RuntimeError("rate_limit")
     except openai.APIConnectionError:
         raise RuntimeError("connection_error")
-    except Exception as e:
-        raise RuntimeError(f"api_error: {e}")
+    except openai.APIError as e:
+        raise RuntimeError("api_error") from e
 
 
 # ---------------------------------------------------------------------------
 # Safe wrapper used by the router
 # ---------------------------------------------------------------------------
 
-def try_llm_enhance(user_message: str, context_summary: str = "") -> str | None:
-    """
-    Attempt an LLM call; return the response or None on any failure.
-    Never raises — callers fall back to rule-based routing on None.
-    """
-    if not is_online():
-        return None
-    try:
-        return call_llm(user_message, context_summary)
-    except RuntimeError as e:
-        code = str(e)
-        _error_messages = {
-            "no_key":           None,   # silent fallback
-            "no_package":       None,
-            "bad_key":          "⚠️ مفتاح OpenAI غير صحيح. يعمل المساعد بالوضع المحلي.",
-            "rate_limit":       "⚠️ تجاوزت الحد المسموح به من الطلبات. يعمل المساعد بالوضع المحلي.",
-            "connection_error": "⚠️ تعذر الاتصال بخادم OpenAI. يعمل المساعد بالوضع المحلي.",
-        }
-        if code in _error_messages:
-            return _error_messages[code]    # None = silent, str = user-visible warning
-        return f"⚠️ خطأ في الاتصال بالذكاء الاصطناعي: {code}. يعمل المساعد بالوضع المحلي."
-    except Exception:
-        return None
+def try_llm_enhance(user_message: str, context_summary: str = "") -> str:
+    """Call the provider; configuration and connection failures remain explicit."""
+    return call_llm(user_message, context_summary)

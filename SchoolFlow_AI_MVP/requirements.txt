@@ -1,4 +1,6 @@
 streamlit>=1.40
 pandas>=2.2
 openpyxl>=3.1
-# openai>=1.0  # uncomment when you have an API key
+supabase>=2.15,<3.0
+openai>=1.0,<3.0
+google-genai>=3.0,<4.0

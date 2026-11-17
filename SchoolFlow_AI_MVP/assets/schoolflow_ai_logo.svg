@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 220" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">SchoolFlow AI</title>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M188 39C158 18 115 18 79 33 44 48 34 78 47 101c12 21 41 29 75 38 31 8 45 23 35 40-13 22-53 24-91 6"
+          stroke="#102B4E" stroke-width="27"/>
+    <path d="M67 184c31 17 70 17 96-3" stroke="#C7E83E" stroke-width="13"/>
+  </g>
+  <g>
+    <rect x="150" y="42" width="17" height="37" rx="4" fill="#C7E83E"/>
+    <rect x="174" y="27" width="17" height="52" rx="4" fill="#102B4E"/>
+    <rect x="198" y="10" width="17" height="69" rx="4" fill="#C7E83E"/>
+  </g>
+  <text x="250" y="151" font-family="Segoe UI, Arial, sans-serif" font-size="104"
+        font-weight="700" letter-spacing="-4" textLength="680" lengthAdjust="spacingAndGlyphs">
+    <tspan fill="#102B4E">SchoolFlow</tspan><tspan fill="#C7E83E"> AI</tspan>
+  </text>
+  <path d="M252 186c155-5 428-5 676 0" fill="none" stroke="#C7E83E" stroke-width="7" stroke-linecap="round"/>
+</svg>

@@ -7,6 +7,7 @@ Both app.py and the test suite import from here.
 
 import pandas as pd
 from io import BytesIO
+import math
 
 # ===========================================================================
 # Constants
@@ -31,6 +32,20 @@ def pct(n, d):
     return (n / d * 100) if d else 0.0
 
 
+def parse_percentage(value) -> float:
+    """Parse a displayed percentage, rejecting invalid or non-finite values."""
+    text = str(value).strip()
+    if text.endswith("%"):
+        text = text[:-1].strip()
+    try:
+        result = float(text)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid percentage value: {value!r}.") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"Percentage value must be finite: {value!r}.")
+    return result
+
+
 def safe_text(v):
     if pd.isna(v):
         return ""
@@ -53,7 +68,7 @@ def fresh_bytes(uploaded) -> BytesIO:
 def validate(df: pd.DataFrame) -> pd.DataFrame:
     """
     Return a DataFrame of issues.  Each row is one flagged cell/row.
-    Columns: Student code, Week, Column, Issue
+    Columns: Student code, Week, Column, Issue, Blocking
     This function does NOT modify df; it only reports problems.
     """
     issues = []
@@ -62,44 +77,61 @@ def validate(df: pd.DataFrame) -> pd.DataFrame:
     for c in NUMERIC_COLS:
         numeric_temp[c] = pd.to_numeric(numeric_temp[c], errors="coerce")
 
-    for idx, row in numeric_temp.iterrows():
-        code = safe_text(row.get("Student code")) or f"row {idx + 1}"
+    def add_issue(code, week_label, column, message, blocking=True):
+        issues.append({
+            "Student code": code, "Week": week_label,
+            "Column": column, "Issue": message, "Blocking": blocking,
+        })
+
+    if df.empty:
+        add_issue("", "", "File", "الملف لا يحتوي على سجلات / No records in file")
+
+    seen = set()
+    for position, (_, row) in enumerate(numeric_temp.iterrows()):
+        student_code = safe_text(row.get("Student code"))
+        code = student_code or f"row {position + 1}"
         week = row.get("Week")
-        week_label = f"Week {int(week)}" if pd.notna(week) else "Week ?"
+        valid_week = (
+            pd.notna(week) and math.isfinite(week) and 0 < week < 2**63
+            and float(week).is_integer()
+        )
+        week_label = f"Week {int(week)}" if valid_week else "Week ?"
+        if not student_code:
+            add_issue(code, week_label, "Student code", "رمز الطالب مطلوب / Student code is required")
+        if not valid_week:
+            add_issue(code, week_label, "Week", "رقم الأسبوع يجب أن يكون عددًا صحيحًا موجبًا ضمن النطاق المدعوم / Week must be a positive integer in the supported range")
+        if student_code and valid_week:
+            key = (student_code, int(week))
+            if key in seen:
+                add_issue(code, week_label, "Week", "سجل مكرر للطالب والأسبوع / Duplicate student and week")
+            seen.add(key)
 
-        for col in ["Days scheduled", "Days attended", "Tasks set", "Tasks completed"]:
-            if pd.isna(row[col]):
-                issues.append({
-                    "Student code": code, "Week": week_label,
-                    "Column": col, "Issue": "قيمة مفقودة / Missing value",
-                })
-
-        if pd.isna(row["Quiz score / 10"]):
-            issues.append({
-                "Student code": code, "Week": week_label,
-                "Column": "Quiz score / 10",
-                "Issue": "درجة الاختبار غير مسجلة / Quiz score not recorded",
-            })
+        for col in NUMERIC_COLS[1:]:
+            value = row[col]
+            original = df.iloc[position][col]
+            missing = pd.isna(original) or not str(original).strip()
+            if pd.isna(value):
+                if col == "Quiz score / 10" and missing:
+                    add_issue(code, week_label, col, "درجة الاختبار غير مسجلة / Quiz score not recorded", blocking=False)
+                else:
+                    message = "قيمة مفقودة / Missing value" if missing else "قيمة رقمية غير صالحة / Invalid numeric value"
+                    add_issue(code, week_label, col, message)
+            elif not math.isfinite(value) or value < 0 or (col == "Quiz score / 10" and value > 10):
+                add_issue(code, week_label, col, "قيمة خارج النطاق المسموح / Value outside allowed range")
 
         sched = row["Days scheduled"]
         att = row["Days attended"]
-        if pd.notna(sched) and pd.notna(att) and att > sched:
-            issues.append({
-                "Student code": code, "Week": week_label,
-                "Column": "Days attended",
-                "Issue": f"الحضور ({att:g}) أكبر من المجدول ({sched:g}) / Attended > Scheduled",
-            })
+        if pd.notna(sched) and pd.notna(att) and math.isfinite(sched) and math.isfinite(att) and att > sched:
+            add_issue(code, week_label, "Days attended",
+                      f"الحضور ({att:g}) أكبر من المجدول ({sched:g}) / Attended > Scheduled")
 
         t_set = row["Tasks set"]
         t_done = row["Tasks completed"]
-        if pd.notna(t_set) and pd.notna(t_done) and t_done > t_set:
-            issues.append({
-                "Student code": code, "Week": week_label,
-                "Column": "Tasks completed",
-                "Issue": f"المهام المنجزة ({t_done:g}) أكبر من المعيّنة ({t_set:g}) / Completed > Set",
-            })
+        if pd.notna(t_set) and pd.notna(t_done) and math.isfinite(t_set) and math.isfinite(t_done) and t_done > t_set:
+            add_issue(code, week_label, "Tasks completed",
+                      f"المهام المنجزة ({t_done:g}) أكبر من المعيّنة ({t_set:g}) / Completed > Set")
 
-    return pd.DataFrame(issues, columns=["Student code", "Week", "Column", "Issue"])
+    return pd.DataFrame(issues, columns=["Student code", "Week", "Column", "Issue", "Blocking"])
 
 
 # ===========================================================================
@@ -111,7 +143,7 @@ def build_outputs(df: pd.DataFrame, has_name: bool):
     Build clean data, per-student summary, and weekly summary.
     Missing numeric values are NOT filled with zero; they remain NaN so that
     percentages are computed only from present values, and the validation step
-    has already informed Montaser about every missing cell.
+    has already reported missing cells.
     Zero scores are preserved as 0.0, distinct from NaN (not recorded).
     """
     df = df.copy()
@@ -184,6 +216,12 @@ def make_workbook(clean, summary, weekly):
         clean.to_excel(writer,   sheet_name="Validated data",    index=False)
         summary.to_excel(writer, sheet_name="Student summaries", index=False)
         weekly.to_excel(writer,  sheet_name="Weekly summary",    index=False)
+        # openpyxl treats user-supplied strings beginning with "=" as formulas.
+        for sheet in writer.sheets.values():
+            for row in sheet.iter_rows():
+                for cell in row:
+                    if cell.data_type == "f":
+                        cell.data_type = "s"
     out.seek(0)
     return out
 

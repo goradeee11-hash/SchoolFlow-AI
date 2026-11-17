@@ -560,9 +560,12 @@ def list_students(lang: str = "ar") -> dict:
     for _, row in summary.iterrows():
         name = row.get("Student name", row["Student code"])
         lines.append(f"- **{row['Student code']}** — {name}")
+    _data_cols = ["Student code"]
+    if "Student name" in summary.columns:
+        _data_cols.append("Student name")
     return {
         "ok": True,
-        "data": summary[["Student code", "Student name"]].to_dict("records"),
+        "data": summary[_data_cols].to_dict("records"),
         "message": "\n".join(lines),
     }
 
